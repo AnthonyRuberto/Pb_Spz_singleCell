@@ -1,0 +1,277 @@
+---
+title: "Pb_Spz_10X"
+author: "Anthony Ruberto and Caitlin Bourke"
+output: html_document
+---
+
+  i. Load libraries.
+
+```{r load libraries}
+
+suppressPackageStartupMessages({
+  library(DropletUtils)
+  library(scater)
+  library(SingleCellExperiment)
+  library(RColorBrewer)
+  library(pipeComp)
+  library(scDblFinder)
+  library(dplyr)
+  })
+
+```
+
+1. Load count matrices in to R.
+
+```{r load scRNA-seq count matrices}
+
+data_dir1 <- "~/Documents/Projects/Pb_spz_10X_sc/Analyses/Pb24a/Gene"
+data_dir2 <- "~/Documents/Projects/Pb_spz_10X_sc/Analyses/Pb24b/Gene"
+data_dir3 <- "~/Documents/Projects/Pb_spz_10X_sc/Analyses/Pb12/Gene"
+
+Pb1<-read10xCounts(data_dir1, col.names = T)
+Pb2<-read10xCounts(data_dir2, col.names = T)
+Pb3<-read10xCounts(data_dir3, col.names = T)
+
+rownames(Pb1) <- uniquifyFeatureNames(rowData(Pb1)$ID, rowData(Pb1)$Symbol)
+rownames(Pb2) <- uniquifyFeatureNames(rowData(Pb2)$ID, rowData(Pb2)$Symbol)
+rownames(Pb3) <- uniquifyFeatureNames(rowData(Pb3)$ID, rowData(Pb3)$Symbol)
+
+head(rownames(Pb1))
+head(rownames(Pb2))
+head(rownames(Pb3))
+
+```
+
+2. Filter out empyty droplets. 
+
+```{r empty drops}
+
+set.seed(6969)
+
+e.out.Pb1 <- emptyDrops(counts(Pb1))
+sum(e.out.Pb1$FDR <= 0.001, na.rm=TRUE)
+Pb1.sce <- Pb1[,which(e.out.Pb1$FDR <= 0.001)]
+
+e.out.Pb2 <- emptyDrops(counts(Pb2))
+sum(e.out.Pb2$FDR <= 0.001, na.rm=TRUE)
+Pb2.sce <- Pb2[,which(e.out.Pb2$FDR <= 0.001)]
+
+e.out.Pb3 <- emptyDrops(counts(Pb3))
+sum(e.out.Pb3$FDR <= 0.001, na.rm=TRUE)
+Pb3.sce <- Pb3[,which(e.out.Pb3$FDR <= 0.001)]
+
+```
+
+3. Prep cell and gene matrices by adding metadata.
+
+```{r add metadata}
+
+Pb_v46_genes<- read.delim("/Users/aruberto/Documents/Projects/Pb_spz_10X_sc/Analyses/R/PbANKA_v46_info.txt") %>% distinct()
+
+rowData(Pb1.sce)$Description <- Pb_v46_genes$Description[match(rownames(Pb1.sce), Pb_v46_genes$Gene)]
+rowData(Pb1.sce)$GeneDescription <- Pb_v46_genes$GeneDescription[match(rownames(Pb1.sce), Pb_v46_genes$Gene)]
+colData(Pb1.sce)$Replicate<-"Technical"
+colData(Pb1.sce)$Sample<-"Pb24a"
+colData(Pb1.sce)$Barcode<-paste(colData(Pb1.sce)$Barcode,"_",colData(Pb1.sce)$Sample, sep = "")
+colnames(Pb1.sce)<-colData(Pb1.sce)$Barcode
+
+rowData(Pb2.sce)$Description <- Pb_v46_genes$Description[match(rownames(Pb2.sce), Pb_v46_genes$Gene)]
+rowData(Pb2.sce)$GeneDescription <- Pb_v46_genes$GeneDescription[match(rownames(Pb2.sce), Pb_v46_genes$Gene)]
+colData(Pb2.sce)$Replicate<-"Technical"
+colData(Pb2.sce)$Sample<-"Pb24b"
+colData(Pb2.sce)$Barcode<-paste(colData(Pb2.sce)$Barcode,"_",colData(Pb2.sce)$Sample, sep = "")
+colnames(Pb2.sce)<-colData(Pb2.sce)$Barcode
+
+rowData(Pb3.sce)$Description <- Pb_v46_genes$Description[match(rownames(Pb3.sce), Pb_v46_genes$Gene)]
+rowData(Pb3.sce)$GeneDescription <- Pb_v46_genes$GeneDescription[match(rownames(Pb3.sce), Pb_v46_genes$Gene)]
+colData(Pb3.sce)$Replicate<-"Biological"
+colData(Pb3.sce)$Sample<-"Pb12"
+colData(Pb3.sce)$Barcode<-paste(colData(Pb3.sce)$Barcode,"_",colData(Pb3.sce)$Sample, sep = "")
+colnames(Pb3.sce)<-colData(Pb3.sce)$Barcode
+
+```
+
+4. Doublet detection.
+
+As suggested by the scDblFinder bioconductor vignette [1], sCDblFinder should be performed on unfiltered data. This information will be added to each cell's metadata.
+
+```{r find doublets}
+
+set.seed(6969)
+
+Pb1.sce <- scDblFinder(Pb1.sce, verbose=T, score= "hybrid")
+Pb2.sce <- scDblFinder(Pb2.sce, verbose=T, score= "hybrid")
+Pb3.sce <- scDblFinder(Pb3.sce, verbose=T, score= "hybrid")
+
+```
+5. Calculate per cell metrics.
+
+  i. Subset genes linked to linked to translation in P.berghei.
+
+```{r genes linked to translation in Pb}
+
+rRNA_all<-c("PBANKA_1024351","PBANKA_1024331","PBANKA_0700721","PBANKA_MIT00300","PBANKA_MIT00700","PBANKA_MIT02500",
+            "PBANKA_MIT03100","PBANKA_MIT02400","PBANKA_MIT02200","PBANKA_MIT00800","PBANKA_MIT01200","PBANKA_MIT01700",
+            "PBANKA_MIT01000","PBANKA_MIT00900","PBANKA_0700761","PBANKA_0622961","PBANKA_MIT01400","PBANKA_API00051",
+            "PBANKA_1245821","PBANKA_MIT01500","PBANKA_MIT00100","PBANKA_MIT02300","PBANKA_MIT01300","PBANKA_MIT03600",
+            "PBANKA_MIT03200","PBANKA_MIT00600","PBANKA_MIT02600","PBANKA_MIT02900","PBANKA_MIT00200","PBANKA_0622941",
+            "PBANKA_MIT03000","PBANKA_API00095","PBANKA_MIT02000","PBANKA_0622921","PBANKA_MIT02800","PBANKA_0521241",
+            "PBANKA_1024341","PBANKA_MIT00400","PBANKA_0521221","PBANKA_MIT03500","PBANKA_0521261","PBANKA_MIT03700",
+            "PBANKA_MIT01600","PBANKA_1245841","PBANKA_1245861","PBANKA_MIT03300","PBANKA_MIT03400","PBANKA_API00055",
+            "PBANKA_API00011","PBANKA_MIT00500","PBANKA_MIT02700","PBANKA_MIT02100","PBANKA_0700741")
+
+```
+
+  ii. Add mitochondrial and rRNA metrics to Pb data.
+
+```{r add mitochondrial and rRNA}
+
+Pb1.mt_genes <- grepl("^PBANKA_MIT", rowData(Pb1.sce)$ID)
+Pb1.ribo_genes <-rRNA_all[(rRNA_all %in% rowData(Pb1.sce)$ID)]
+Pb1.feature_ctrls <- list(mito = rowData(Pb1.sce)$ID[Pb1.mt_genes],ribo = Pb1.ribo_genes)
+lapply(Pb1.feature_ctrls, head)
+
+Pb2.mt_genes <- grepl("^PBANKA_MIT", rowData(Pb2.sce)$ID)
+Pb2.ribo_genes <-rRNA_all[(rRNA_all %in% rowData(Pb2.sce)$ID)]
+Pb2.feature_ctrls <- list(mito = rownames(Pb2.sce)[Pb2.mt_genes],ribo = Pb2.ribo_genes)
+lapply(Pb2.feature_ctrls, head)
+
+Pb3.mt_genes <- grepl("^PBANKA_MIT", rowData(Pb3.sce)$ID)
+Pb3.ribo_genes <-rRNA_all[(rRNA_all %in% rowData(Pb3.sce)$ID)]
+Pb3.feature_ctrls <- list(mito = rownames(Pb3.sce)[Pb3.mt_genes],ribo = Pb3.ribo_genes)
+lapply(Pb3.feature_ctrls, head)
+
+```
+  iii. Add per cell metrics.
+
+```{r QC per cell metrics}
+
+Pb1.sce <- addPerCellQC(Pb1.sce, subsets = Pb1.feature_ctrls)
+Pb2.sce <- addPerCellQC(Pb2.sce, subsets = Pb2.feature_ctrls)
+Pb3.sce <- addPerCellQC(Pb3.sce, subsets = Pb3.feature_ctrls)
+
+Pb1.sce <- addPerFeatureQC(Pb1.sce, detection_limit = 0)
+Pb2.sce <- addPerFeatureQC(Pb2.sce, detection_limit = 0)
+Pb3.sce <- addPerFeatureQC(Pb3.sce, detection_limit = 0)
+
+```
+
+6. Filter low-quality cells.
+
+```{r filter doublets}
+
+Pb1.sce$is_outlierCounts <- isOutlier(metric = Pb1.sce$sum,nmads = 3, type = "higher", log = TRUE)
+Pb2.sce$is_outlierCounts <- isOutlier(metric = Pb2.sce$sum,nmads = 3, type = "higher", log = TRUE)
+Pb3.sce$is_outlierCounts <- isOutlier(metric = Pb3.sce$sum,nmads = 3, type = "higher", log = TRUE)
+
+Pb1.sce.filt <- Pb1.sce[, !Pb1.sce$is_outlierCounts]
+dim(Pb1.sce.filt)
+Pb2.sce.filt <- Pb2.sce[, !Pb2.sce$is_outlierCounts]
+dim(Pb2.sce.filt)
+Pb3.sce.filt <- Pb3.sce[, !Pb3.sce$is_outlierCounts]
+dim(Pb3.sce.filt)
+
+```
+
+7. Filter low detected genes.
+
+```{r filter low detect genes}
+
+Pb1.sce.filt<-Pb1.sce.filt[rowSums(counts(Pb1.sce.filt) > 2) > 1, ]
+dim(Pb1.sce.filt)
+
+Pb2.sce.filt<-Pb2.sce.filt[rowSums(counts(Pb2.sce.filt) > 2) > 1, ]
+dim(Pb2.sce.filt)
+
+Pb3.sce.filt<-Pb3.sce.filt[rowSums(counts(Pb3.sce.filt) > 2) > 1, ]
+dim(Pb3.sce.filt)
+
+```
+
+8. Recalculate per cell metrics.
+
+  i. Base metrics.
+
+```{r reculaculate QC per cell metrics}
+
+Pb1.mt_genes <- grepl("^PBANKA_MIT", rowData(Pb1.sce.filt)$ID)
+Pb1.ribo_genes <-rRNA_all[(rRNA_all %in% rowData(Pb1.sce.filt)$ID)]
+Pb1.feature_ctrls <- list(mito = rowData(Pb1.sce.filt)$ID[Pb1.mt_genes],
+                      ribo = Pb1.ribo_genes)
+
+Pb2.mt_genes <- grepl("^PBANKA_MIT", rowData(Pb2.sce.filt)$ID)
+Pb2.ribo_genes <-rRNA_all[(rRNA_all %in% rowData(Pb2.sce.filt)$ID)]
+Pb2.feature_ctrls <- list(mito = rownames(Pb2.sce.filt)[Pb2.mt_genes],
+                      ribo = Pb2.ribo_genes)
+
+Pb3.mt_genes <- grepl("^PBANKA_MIT", rowData(Pb3.sce.filt)$ID)
+Pb3.ribo_genes <-rRNA_all[(rRNA_all %in% rowData(Pb3.sce.filt)$ID)]
+Pb3.feature_ctrls <- list(mito = rownames(Pb3.sce.filt)[Pb3.mt_genes],
+                      ribo = Pb3.ribo_genes)
+
+colData(Pb1.sce.filt)[,c("preFilterSum", "preFilterDetected")]<-colData(Pb1.sce.filt)[,8:9]
+colData(Pb1.sce.filt)[,8:20]<-NULL
+
+colData(Pb2.sce.filt)[,c("preFilterSum", "preFilterDetected")]<-colData(Pb2.sce.filt)[,8:9]
+colData(Pb2.sce.filt)[,8:20]<-NULL
+
+colData(Pb3.sce.filt)[,c("preFilterSum", "preFilterDetected")]<-colData(Pb3.sce.filt)[,8:9]
+colData(Pb3.sce.filt)[,8:20]<-NULL
+
+
+rowData(Pb1.sce.filt)[,c("preFilterMean", "preFilterDetected")]<-rowData(Pb1.sce.filt)[,5:6]
+rowData(Pb1.sce.filt)[,5:6]<-NULL
+
+rowData(Pb2.sce.filt)[,c("preFilterMean", "preFilterDetected")]<-rowData(Pb2.sce.filt)[,5:6]
+rowData(Pb2.sce.filt)[,5:6]<-NULL
+
+rowData(Pb3.sce.filt)[,c("preFilterMean", "preFilterDetected")]<-rowData(Pb3.sce.filt)[,5:6]
+rowData(Pb3.sce.filt)[,5:6]<-NULL
+
+Pb1.sce.filt <- addPerCellQC(Pb1.sce.filt, subsets = Pb1.feature_ctrls)
+Pb2.sce.filt <- addPerCellQC(Pb2.sce.filt, subsets = Pb2.feature_ctrls)
+Pb3.sce.filt <- addPerCellQC(Pb3.sce.filt, subsets = Pb3.feature_ctrls)
+
+# Note: all both scDblFinder and is_OutlierCounts metrics carried forward are based on the PRE-FILTERED cell numbers.
+
+Pb1.sce.filt <- addPerFeatureQC(Pb1.sce.filt, detection_limit = 0)
+Pb2.sce.filt <- addPerFeatureQC(Pb2.sce.filt, detection_limit = 0)
+Pb3.sce.filt <- addPerFeatureQC(Pb3.sce.filt, detection_limit = 0)
+
+```
+
+  ii. Supplementary metrics provided by the pipeComp library.
+
+```{r add supplementary column metadata}
+
+source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
+
+add_supp_meta <- function(ds){
+  ds$total_features <- ds$detected
+  ds$log10_total_features <- log10(ds$detected)
+  ds$total_counts <- ds$sum
+  ds$log10_total_counts <- log10(ds$sum+1)
+  ds$featcount_ratio <- ds$log10_total_counts/ds$log10_total_features
+  ds$featcount_dist <- getFeatCountDist(ds)
+  ds$pct_counts_top_50_features <- ds$percent_top_50
+  ds
+}
+
+Pb1.sce.filt<-add_supp_meta(Pb1.sce.filt)
+Pb2.sce.filt<-add_supp_meta(Pb2.sce.filt)
+Pb3.sce.filt<-add_supp_meta(Pb3.sce.filt)
+
+```
+
+Up to this point, we have performed cell and gene filtering to make our single-cell RNA seq data more workable. Save the filtered single-cell experiment objects. 
+
+```{r save processed SCE objects}
+
+saveRDS(Pb1.sce.filt, "output/MS/1_Pb1_sce.rds")
+saveRDS(Pb2.sce.filt, "output/MS/1_Pb2_sce.rds")
+saveRDS(Pb3.sce.filt, "output/MS/1_Pb3_sce.rds")
+
+```
+
+Proceed to the next notebook for further processing.
+

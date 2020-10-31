@@ -1,0 +1,266 @@
+---
+title: "Pb_Spz_10X_4"
+author: "Anthony Rubertoand Caitlin Bourke"
+output: html_document
+---
+
+  i. Load libraries.
+
+```{r load libraries}
+
+suppressPackageStartupMessages({
+  library(SingleCellExperiment)
+  library(dplyr)
+  library(scater)
+  library(pipeComp)
+  library(scDblFinder)
+  library(ggpubr)
+  library(RColorBrewer)
+  library(Seurat)
+  })
+
+```
+  ii. Load color palette.
+  
+```{r load color palette}
+
+palette<-c( '#3cb44b', "#e6194b", '#4363d8','#ffe119','#f58231', '#911eb4', '#46f0f0', '#800000', '#ffd8b1', '#fabebe', '#008080', '#e6beff', '#9a6324', 'grey60', '#f032e6', '#aaffc3', '#808000', '#bcf60c', '#000075', '#808080', '#ffffff', '#000000')
+
+```
+
+The files used in this document were downloaded from MCA's dedicated Github page [1]. 
+
+1. Load MCA SmartSeq-2 data in to R, and subset to only keep pre-vertebrate life-cycle stages of the parasite.
+
+```{r load MCA PbANKA SS2 data}
+
+molecules <- read.table("~/Documents/Single_cell_practice/MalariaAtlas/SS2_counts.txt", header = TRUE, sep = ",", row.names=1, stringsAsFactors = TRUE)
+anno <- read.delim("~/Documents/Single_cell_practice/Git_10X_Pb_Spz/SS2_pheno.txt", header = TRUE, sep = ",")
+cols <- c("bbSpz" = "navy", "EEF"="darkorange", "Merozoite"="lightpink", "oocyst"="steelblue", "ook" = "turquoise4", "Ring"="hotpink", "sgSpz"= "royalblue", "Schizont" = "violetred", "Male"="purple", "Female"="purple4", "ookoo" = "mediumturquoise", "Trophozoite"="violet")
+
+mca.qc.ss <- SingleCellExperiment(assays = list(
+  counts = as.matrix(molecules)), 
+  colData = anno,
+  rowData = data.frame(gene_names = rownames(molecules))
+  )
+
+mca.qc.ss <- mca.qc.ss[, (colData(mca.qc.ss)$ShortenedLifeStage3 == "bbSpz") | 
+                       (colData(mca.qc.ss)$ShortenedLifeStage3 == "sgSpz") |
+                       (colData(mca.qc.ss)$ShortenedLifeStage3 == "Oocyst") |
+                       (colData(mca.qc.ss)$ShortenedLifeStage3 == "Ookinete")]
+
+```
+
+2. Prep matrix in a similar manner used in 'Pb_Spz_10X.rmd'.
+
+```{r prep matrices MCA PbANKA SS2}
+
+Pb_v46_genes<- read.delim("/Users/aruberto/Documents/Projects/Pb_spz_10X_sc/Analyses/R/PbANKA_v46_info.txt") %>% distinct()
+
+rowData(mca.qc.ss)$Description <- Pb_v46_genes$Description[match(rownames(mca.qc.ss), Pb_v46_genes$Gene)]
+rowData(mca.qc.ss)$GeneDescription <- Pb_v46_genes$GeneDescription[match(rownames(mca.qc.ss), Pb_v46_genes$Gene)]
+rowData(mca.qc.ss)$ID<-rownames(mca.qc.ss)
+colData(mca.qc.ss)$Replicate<-"Biological"
+colData(mca.qc.ss)$Sample<-"SS2"
+colData(mca.qc.ss)$sample_id<-paste(colData(mca.qc.ss)$sample_id,"_",colData(mca.qc.ss)$Sample, sep = "")
+colnames(mca.qc.ss)<-colData(mca.qc.ss)$sample_id
+colData(mca.qc.ss)$X <- NULL
+colData(mca.qc.ss)
+
+```
+
+3. Find doublets.
+
+```{r find doublets in MCA Pb ANKA SS2 dataset}
+
+set.seed(6969)
+
+mca.qc.ss <- scDblFinder(mca.qc.ss, verbose=T, score= "hybrid")
+
+colData(mca.qc.ss)
+
+```
+
+4. Add per cell metrics.
+
+  i. Identify rRNA genes
+
+```{r rRNA for MCA Pb SS2}
+
+rRNA_all<-c("PBANKA_1024351","PBANKA_1024331","PBANKA_0700721","PBANKA_MIT00300","PBANKA_MIT00700","PBANKA_MIT02500",
+            "PBANKA_MIT03100","PBANKA_MIT02400","PBANKA_MIT02200","PBANKA_MIT00800","PBANKA_MIT01200","PBANKA_MIT01700",
+            "PBANKA_MIT01000","PBANKA_MIT00900","PBANKA_0700761","PBANKA_0622961","PBANKA_MIT01400","PBANKA_API00051",
+            "PBANKA_1245821","PBANKA_MIT01500","PBANKA_MIT00100","PBANKA_MIT02300","PBANKA_MIT01300","PBANKA_MIT03600",
+            "PBANKA_MIT03200","PBANKA_MIT00600","PBANKA_MIT02600","PBANKA_MIT02900","PBANKA_MIT00200","PBANKA_0622941",
+            "PBANKA_MIT03000","PBANKA_API00095","PBANKA_MIT02000","PBANKA_0622921","PBANKA_MIT02800","PBANKA_0521241",
+            "PBANKA_1024341","PBANKA_MIT00400","PBANKA_0521221","PBANKA_MIT03500","PBANKA_0521261","PBANKA_MIT03700",
+            "PBANKA_MIT01600","PBANKA_1245841","PBANKA_1245861","PBANKA_MIT03300","PBANKA_MIT03400","PBANKA_API00055",
+            "PBANKA_API00011","PBANKA_MIT00500","PBANKA_MIT02700","PBANKA_MIT02100","PBANKA_0700741")
+
+```
+
+  ii. Add rRNA and mito information to SCE object.
+
+```{r add mito and rRNA to MCA Pb SS2}
+
+# Get Mitochondrial genes and rRNA for QC:
+
+mca.mt_genes <- grepl("^PBANKA_MIT", rowData(mca.qc.ss)$ID)
+mca.ribo_genes <-rRNA_all[(rRNA_all %in% rowData(mca.qc.ss)$ID)]
+mca.feature_ctrls <- list(mito = rowData(mca.qc.ss)$ID[mca.mt_genes], ribo = mca.ribo_genes)
+
+lapply(mca.feature_ctrls, head)
+
+```
+  iii. Calculate per cell QC metrics.
+
+```{r QC per cell metrics}
+
+mca.qc.ss <- addPerCellQC(mca.qc.ss, subsets = mca.feature_ctrls)
+mca.qc.ss <- addPerFeatureQC(mca.qc.ss, detection_limit = 0)
+
+```
+
+5. Filter potential doublets.
+
+```{r filter high count MCA Pb SS2}
+
+mca.qc.ss$is_outlierCounts <- isOutlier(metric = mca.qc.ss$sum, nmads = 3, type = "higher", log = TRUE)
+
+mca.qc.ss <- mca.qc.ss[, !mca.qc.ss$is_outlierCounts]
+
+dim(mca.qc.ss)
+
+```
+
+6. Filter low detected genes.
+
+```{r filter low detect genes MCA Pb SS2}
+
+dim(mca.qc.ss)
+
+mca.qc.ss<-mca.qc.ss[rowSums(counts(mca.qc.ss) > 2) > 1, ]
+
+dim(mca.qc.ss)
+
+```
+
+7. Recalculate per-cell metrics post-processing.
+
+  i. Basics.
+
+```{r reculaculate QC per cell metrics for MCA Pb SS2}
+
+mca.mt_genes <- grepl("^PBANKA_MIT", rowData(mca.qc.ss)$ID)
+mca.ribo_genes <-rRNA_all[(rRNA_all %in% rowData(mca.qc.ss)$ID)]
+mca.feature_ctrls <- list(mito = rowData(mca.qc.ss)$ID[mca.mt_genes],
+                      ribo = mca.ribo_genes)
+
+lapply(mca.feature_ctrls, head)
+
+colData(mca.qc.ss)[,c("preFilterSum", "preFilterDetected")]<-colData(mca.qc.ss)[,54:55]
+colData(mca.qc.ss)[,c(37:44, 54:65)]<-NULL
+colData(mca.qc.ss)
+
+rowData(mca.qc.ss)[,c("preFilterMean", "preFilterDetected")]<-rowData(mca.qc.ss)[,5:6]
+rowData(mca.qc.ss)[,5:6]<-NULL
+rowData(mca.qc.ss)
+
+mca.qc.ss <- addPerCellQC(mca.qc.ss, subsets = mca.feature_ctrls)
+colData(mca.qc.ss)
+
+# Note: all both scDblFinder and is_OutlierCounts metrics carried forward are based on the PRE-FILTERED cell numbers.
+
+mca.qc.ss <- addPerFeatureQC(mca.qc.ss, detection_limit = 0)
+
+```
+
+  ii. PipeComp supplemental.
+  
+```{r add supplementary column metadata to MCA Pb SS2}
+
+source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
+
+add_supp_meta <- function(ds){
+  ds$total_features <- ds$detected
+  ds$log10_total_features <- log10(ds$detected)
+  ds$total_counts <- ds$sum
+  ds$log10_total_counts <- log10(ds$sum+1)
+  ds$featcount_ratio <- ds$log10_total_counts/ds$log10_total_features
+  ds$featcount_dist <- getFeatCountDist(ds)
+  ds$pct_counts_top_50_features <- ds$percent_top_50
+  ds
+}
+
+mca.qc.ss<-add_supp_meta(mca.qc.ss)
+
+colData(mca.qc.ss)
+
+```
+
+
+8. SCE to Seurat for data reduction and clustering.
+
+ i. ensure compatibility I 
+
+```{r sce to Seurat MCA Pb SS2}
+
+mca.mq.stage<-as.Seurat(mca.qc.ss, data = NULL)
+
+mca.mq.stage$nCount_RNA <-mca.mq.stage$sum
+
+mca.mq.stage$nFeature_RNA <-mca.mq.stage$detected
+
+```
+
+  ii. ensure compatibility II
+  
+```{r rRNA and UIS calling}
+
+# vectors containing rRNA and UIS genes 
+
+rRNA_all<-c("PBANKA-1024351","PBANKA-1024331","PBANKA-0700721","PBANKA-MIT00300","PBANKA-MIT00700","PBANKA-MIT02500",
+            "PBANKA-MIT03100","PBANKA-MIT02400","PBANKA-MIT02200","PBANKA-MIT00800","PBANKA-MIT01200","PBANKA-MIT01700",
+            "PBANKA-MIT01000","PBANKA-MIT00900","PBANKA-0700761","PBANKA-0622961","PBANKA-MIT01400","PBANKA-API00051",
+            "PBANKA-1245821","PBANKA-MIT01500","PBANKA-MIT00100","PBANKA-MIT02300","PBANKA-MIT01300","PBANKA-MIT03600",
+            "PBANKA-MIT03200","PBANKA-MIT00600","PBANKA-MIT02600","PBANKA-MIT02900","PBANKA-MIT00200","PBANKA-0622941",
+            "PBANKA-MIT03000","PBANKA-API00095","PBANKA-MIT02000","PBANKA-0622921","PBANKA-MIT02800","PBANKA-0521241",
+            "PBANKA-1024341","PBANKA-MIT00400","PBANKA-0521221","PBANKA-MIT03500","PBANKA-0521261","PBANKA-MIT03700",
+            "PBANKA-MIT01600","PBANKA-1245841","PBANKA-1245861","PBANKA-MIT03300","PBANKA-MIT03400","PBANKA-API00055",
+            "PBANKA-API00011","PBANKA-MIT00500","PBANKA-MIT02700","PBANKA-MIT02100","PBANKA-0700741")
+
+UIS_genes<-c("PBANKA-0205800","PBANKA-1328000","PBANKA-1400800","PBANKA-0501200","PBANKA-0211300","PBANKA-1454900","PBANKA-1233500","PBANKA-1128100",
+             "PBANKA-1206300","PBANKA-0506200","PBANKA-1003400","PBANKA-0511400","PBANKA-1232400","PBANKA-1346300","PBANKA-1321400","PBANKA-1311000",
+             "PBANKA-0602000","PBANKA-1413400","PBANKA-0914400","PBANKA-1320100",
+             "PBANKA-1113800","PBANKA-1435900","PBANKA-1017500","PBANKA-1020200")
+
+# percentage of reads containing encoding for rRNA per cell
+
+mca.mq.stage.genes<-mca.mq.stage@assays$RNA@counts@Dimnames[[1]]
+rRNA_all %in% mca.mq.stage.genes
+mca.mq.stage.rRNA<-rRNA_all[(rRNA_all %in% mca.mq.stage.genes)]
+mca.mq.stage[["percent.rRNA"]]<-PercentageFeatureSet(mca.mq.stage, features = mca.mq.stage.rRNA)
+
+# percentage of reads containing encoding for UIS per cell
+
+UIS_genes %in% mca.mq.stage.genes
+mca.mq.stage.UIS<-UIS_genes[(UIS_genes %in% mca.mq.stage.genes)]
+mca.mq.stage$percentUIS<-PercentageFeatureSet(object = mca.mq.stage, features = mca.mq.stage.UIS, assay = 'RNA')
+
+```
+
+9. Save MCA Pb ANKA mosquito development data.
+
+This Seurat object was used for the generation of the UMAPs of the integrated 10X and MCA data in Figure 3.
+
+```{r save MCA pre-vertebrate host Seurat object}
+
+saveRDS(mca.mq.stage, "output/MS/4_MCA_SS2_seurat.rds")
+
+```
+
+Links:
+
+[1] https://github.com/vhowick/MalariaCellAtlas/tree/master/Expression_Matrices/Smartseq2
+
+

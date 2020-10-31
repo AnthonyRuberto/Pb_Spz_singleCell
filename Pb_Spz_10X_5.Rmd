@@ -1,0 +1,224 @@
+---
+title: "Pb_Spz_10X_5"
+author: "Anthony Ruberto and Caitlin Bourke"
+output: html_document
+---
+
+  i. Load libraries.
+
+```{r load libraries}
+
+suppressPackageStartupMessages({
+  library(SingleCellExperiment)
+  library(Seurat)
+  library(ggpubr)
+  })
+
+```
+
+  ii. Load color palettes
+  
+```{r color palette}
+
+palette<-c( '#3cb44b', "#e6194b", '#4363d8','#f58231','#911eb4', 'lightgrey','#ffe119', '#46f0f0', '#800000', '#ffd8b1', '#fabebe', '#008080', '#e6beff', '#9a6324', 'grey60', '#f032e6', '#aaffc3', '#808000', '#bcf60c', '#000075', '#808080', '#ffffff', '#000000')
+
+palette2<-c('#f58231', '#911eb4', '#46f0f0', '#800000', '#008080','grey60', '#f032e6','#808000','red', '#aaffc3',  '#bcf60c', '#000075', '#808080', '#ffffff', '#000000','#3cb44b', "#e6194b", '#4363d8','#ffe119','#ffd8b1', '#fabebe' ,'#e6beff', '#9a6324')
+
+```
+
+
+1. Upload 10X data.
+
+```{r upload 10X data}
+
+# Uploading data duplicates the count data to the data slot as well. Usually the data slot contains the Log normalized data. Further along in the notebook, this slot will be filled with the normalized data.
+
+Pb1<-readRDS("output/MS/1_Pb1_sce.rds")
+Pb1.seu<-as.Seurat(Pb1, slot="counts", data = NULL)
+Pb2<-readRDS("output/MS/1_Pb2_sce.rds")
+Pb2.seu<-as.Seurat(Pb2,slot="counts", data = NULL)
+Pb3<-readRDS("output/MS/1_Pb3_sce.rds")
+Pb3.seu<-as.Seurat(Pb3,slot="counts", data = NULL)
+
+# For compatibility reasons in Seurat, we will copy the 'sum' and 'detected' info to their Seurat equivalents, 'nCount_RNA' and 'nFeature_RNA', respectively.
+
+Pb1.seu$nCount_RNA <-Pb1.seu$sum
+Pb1.seu$nFeature_RNA <-Pb1.seu$detected
+
+Pb2.seu$nCount_RNA <-Pb2.seu$sum
+Pb2.seu$nFeature_RNA <-Pb2.seu$detected
+
+Pb3.seu$nCount_RNA <-Pb3.seu$sum
+Pb3.seu$nFeature_RNA <-Pb3.seu$detected
+
+Pb1.seu$replicate<-"Pb1"
+Pb1.seu$technology<-"10X"
+Pb1.seu$replicate2<-"Technical1"
+Pb1.seu$time<-'day21'
+Pb1.seu$ShortenedLifeStage2<-'Spz'
+Pb1.seu$Order<-6
+
+Pb2.seu$replicate<-"Pb2"
+Pb2.seu$technology<-"10X"
+Pb2.seu$replicate2<-"Technical2"
+Pb2.seu$time<-'day21'
+Pb2.seu$ShortenedLifeStage2<-'Spz'
+Pb2.seu$Order<-6
+
+Pb3.seu$replicate<-"Pb3"
+Pb3.seu$technology<-"10X"
+Pb3.seu$replicate2<-"Biological"
+Pb3.seu$time<-'day21'
+Pb3.seu$ShortenedLifeStage2<-'Spz'
+Pb3.seu$Order<-6
+
+```
+
+2. Upload MCA SS2 data.
+
+```{r upload SS2 data}
+
+mca.ss2<-readRDS("output/MS/4_MCA_SS2_seurat.rds")
+mca.ss2$replicate<-"MCA"
+mca.ss2$technology<-"SS2"
+mca.ss2$replicate2<-"Biological"
+
+```
+
+3. Integrate the data sets 
+
+  i. Normalize the four datasets and find variable features.
+
+```{r Integration 10X and SS2 scRNA-seq data, one}
+
+Pb1.seu
+Pb2.seu
+Pb3.seu
+mca.ss2
+
+Pb.list <-c(Pb1.seu, Pb2.seu, Pb3.seu, mca.ss2)
+for (i in 1:length(Pb.list)) {
+    Pb.list[[i]] <- NormalizeData(Pb.list[[i]], verbose = F, normalization.method = "LogNormalize")
+    Pb.list[[i]] <- FindVariableFeatures(Pb.list[[i]], selection.method = "vst",  
+        nfeatures = length(rownames(Pb.list[[i]]))*.2, verbose = FALSE)
+}
+
+VariableFeaturePlot(Pb.list[[1]])
+VariableFeaturePlot(Pb.list[[2]])
+VariableFeaturePlot(Pb.list[[3]])
+VariableFeaturePlot(Pb.list[[4]])
+
+```
+  
+  ii. Find integration anchors and integrate data.
+
+```{r Integration 10X and SS2 scRNA-seq data, two}
+
+Pb.anchors <- FindIntegrationAnchors(object.list = Pb.list, dims = 1:30, anchor.features = 300)
+
+Pb.integrated.MCA.10X <- IntegrateData(anchorset = Pb.anchors, dims = 1:30)
+
+```
+  iii. Scale data and perform dimension reduction.
+  
+```{r Integration 10X and SS2 scRNA-seq data, three}
+
+set.seed(6969)
+
+DefaultAssay(Pb.integrated.MCA.10X)
+
+Pb.integrated.MCA.10X <- ScaleData(Pb.integrated.MCA.10X, verbose = FALSE)
+
+Pb.integrated.MCA.10X <- RunPCA(Pb.integrated.MCA.10X, npcs = 50, verbose = FALSE, seed.use = 20)
+
+ElbowPlot(Pb.integrated.MCA.10X)
+
+Pb.integrated.MCA.10X <- RunUMAP(Pb.integrated.MCA.10X, reduction = "pca", dims = 1:15, seed.use = 42)
+
+```
+
+  iv. Visualize structure of the data in low-dim space.
+
+```{r integrated SS2 and 10X Pb Dimplots}
+
+Pb.integrated.MCA.10X@meta.data$ShortenedLifeStage2<-factor(Pb.integrated.MCA.10X@meta.data$ShortenedLifeStage2, levels = c('ook', 'ookoo', 'oocyst', 'sgSpz', 'bbSpz', 'Spz'))
+
+fig3b.1<-DimPlot(Pb.integrated.MCA.10X, reduction = "umap", group.by = "ShortenedLifeStage2", split.by = "ShortenedLifeStage2", label = F, label.size = 6, cols = palette, pt.size = NULL)+border()
+
+fig3b.2<-DimPlot(Pb.integrated.MCA.10X, reduction = "umap", group.by = "ShortenedLifeStage2", label = F, label.size = 6, cols = palette, pt.size = 1, shuffle = T)+border()
+
+ggarrange(fig3b.1, fig3b.2, heights = c(0.7, 1.4),
+          ncol = 1, nrow = 2, common.legend = F)
+
+```
+
+Now that we have merged the SS2 and 10X datasets let's perform the graph-based cluster analysis. 
+
+4. Perform graph-based clustering.
+
+  i. Find neighbours.
+
+```{r cluster Pb scRNA-seq 10Xand SS2_MCA, one}
+
+Pb.integrated.MCA.10X <- FindNeighbors(Pb.integrated.MCA.10X, dims = 1:15, verbose = FALSE)
+
+```
+
+ ii. Find clusters.
+  
+Let's assess clusters using various resolutions. We will use the Leiden algorithm to detect communities. Despite taking some extra time to run. This algorithm builds on the Louvain algorithm and hashes out some of its pitfalls. See [1] for more information.
+
+```{r cluster Pb scRNA-seq 10X and SS2_MCA, two}
+
+Pb.integrated.MCA.10X <- FindClusters(Pb.integrated.MCA.10X, graph.name = "integrated_snn", resolution = .1  , algorithm = 4)
+Pb.integrated.MCA.10X <- FindClusters(Pb.integrated.MCA.10X, graph.name = "integrated_snn", resolution = .2  , algorithm = 4)
+Pb.integrated.MCA.10X <- FindClusters(Pb.integrated.MCA.10X, graph.name = "integrated_snn", resolution = .3 , algorithm = 4)
+Pb.integrated.MCA.10X <- FindClusters(Pb.integrated.MCA.10X, graph.name = "integrated_snn", resolution = .4 , algorithm = 4)
+Pb.integrated.MCA.10X <- FindClusters(Pb.integrated.MCA.10X, graph.name = "integrated_snn", resolution = .5 , algorithm = 4)
+Pb.integrated.MCA.10X <- FindClusters(Pb.integrated.MCA.10X, graph.name = "integrated_snn", resolution = .6 , algorithm = 4)
+Pb.integrated.MCA.10X <- FindClusters(Pb.integrated.MCA.10X, graph.name = "integrated_snn", resolution = .7 , algorithm = 4)
+Pb.integrated.MCA.10X <- FindClusters(Pb.integrated.MCA.10X, graph.name = "integrated_snn", resolution = .8 , algorithm = 4)
+Pb.integrated.MCA.10X <- FindClusters(Pb.integrated.MCA.10X, graph.name = "integrated_snn", resolution = .9 , algorithm = 4)
+Pb.integrated.MCA.10X <- FindClusters(Pb.integrated.MCA.10X, graph.name = "integrated_snn", resolution = 1  , algorithm = 4)
+
+```
+
+  iii. Visualize data, conservative resolution. 
+
+```{r visualize, cluster Pb scRNA-seq 10X and SS2_MCA, redefined resolutions}
+
+# Figure 3c.
+
+DimPlot(Pb.integrated.MCA.10X, split.by = 'ShortenedLifeStage2', group.by = "integrated_snn_res.0.7", cols = palette2, pt.size = 0.5, dims = c(1,2))+border()
+
+# Figure 3e.
+
+Pb.integrated.10X.only<-subset(Pb.integrated.MCA.10X, subset = ShortenedLifeStage2 == "Spz")
+
+fig3e<-DimPlot(Pb.integrated.10X.only, reduction = "umap", group.by = "integrated_snn_res.0.7", label = T, label.size = 10, cols = palette2, pt.size = 1, shuffle = T)+border()+
+  theme(strip.text.x = element_blank(),
+        axis.title = element_text(size = 30, color = 'white'),
+        axis.text = element_text(size = 20, color = 'black'),
+        axis.ticks = element_blank())+NoLegend()
+
+fig3e+theme_void()+NoLegend()
+
+```
+
+At this point, we have inferred sporozoite clusters across a range of resolutions.
+
+To perform further analyses associated with Figures 3, 4 and 5 of the manuscript:
+  - First, use the Pb.integrated.10X.only Seurat object.
+  - Second, ensure a resolution of 0.7 is chosen. To do this use SetIdent() function in Seurat.
+  
+5. Save RDS files.
+
+```{r save Seurat objects}
+
+saveRDS(Pb.integrated.MCA.10X, "output/MS/5_Pb_integrated_MCA_10X.rds")
+saveRDS(Pb.integrated.10X.only, "output/MS/5_Pb_integrated_10X_only.rds")
+
+```
+  
+To perform trajectory analysis, proceed to the the next notebook.
+

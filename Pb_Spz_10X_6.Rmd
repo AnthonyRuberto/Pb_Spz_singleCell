@@ -1,0 +1,101 @@
+---
+title: "Pb_Spz_10X_6"
+author: "Anthony Ruberto and Caitlin Bourke"
+output: html_document
+---
+
+  i. Load libraries.
+
+```{r load libraries}
+
+suppressPackageStartupMessages({
+  library(SingleCellExperiment)
+  library(Seurat)
+  library(ggpubr)
+  library(slingshot)
+  library(tradeSeq)
+  })
+
+```
+
+  ii. Load color palettes
+  
+```{r color palette}
+
+palette<-c( '#3cb44b', "#e6194b", '#4363d8','#f58231','#911eb4', 'lightgrey','#ffe119', '#46f0f0', '#800000', '#ffd8b1', '#fabebe', '#008080', '#e6beff', '#9a6324', 'grey60', '#f032e6', '#aaffc3', '#808000', '#bcf60c', '#000075', '#808080', '#ffffff', '#000000')
+
+palette2<-c('#f58231', '#911eb4', '#46f0f0', '#800000', '#008080','grey60', '#f032e6','#808000','red', '#aaffc3',  '#bcf60c', '#000075', '#808080', '#ffffff', '#000000','#3cb44b', "#e6194b", '#4363d8','#ffe119','#ffd8b1', '#fabebe' ,'#e6beff', '#9a6324')
+
+```
+
+1. Upload 10X sporozoite data from Pb_Spz_10X_5.rmd.
+
+```{r upload 10X data}
+
+Pb.integrated.10X.only<-readRDS("output/MS/5_Pb_integrated_10X_only.rds")
+
+```
+
+2. Reformat data so that it is compatible with Slingshot.
+
+```{r Seurat to Slingshot}
+
+dimred <- Pb.integrated.10X.only@reductions$umap@cell.embeddings
+clustering <- Pb.integrated.10X.only$integrated_snn_res.0.7
+counts <- as.matrix(Pb.integrated.10X.only@assays$RNA@counts[Pb.integrated.10X.only@assays$integrated@var.features, ])
+
+```
+
+3. Determine the lineages in the data. 
+
+```{r lineage identification}
+
+# Run default Slingshot lineage identification
+
+set.seed(1)
+lineages <- getLineages(data = dimred, clusterLabels = clustering)
+lineages
+
+```
+
+4. Find principal curves.
+
+```{r find principal curves}
+
+curvesALL <- getCurves(lineages, approx_points = F, allow.breaks = FALSE)
+curvesALL
+
+```
+
+5. Plot principal curves on UMAP.
+
+```{r plot Principal curves}
+
+# Figure 4a.
+
+plot(dimred[,c(1,2)], col = palette2[clustering], asp = 1, pch = 16, cex = .5)
+lines(curvesALL, lwd = 7, col = c("black","green", "blue", 'red'))
+
+```
+
+6. Fit GAM - takes some time. Grab a coffee.
+
+```{r GAM fitting SG 10X scRNA-seq}
+
+sceALL10Xspz <- fitGAM(counts = counts, sds = curvesALL)
+
+```
+
+Once the GAM fitting is complete, use tradeSEQ [1]  on the sceALL10Xspz object to:
+
+1) Assess differential expression pattern between lineages - patternTest().
+2) Perform statistical test to check for DE between final stages of every lineage - diffEndTest().
+
+7. Save RDS.
+
+```{r save SCE pseudotime object}
+
+saveRDS(sceALL10Xspz, "output/MS/6_Pb_integrated_10X_only_pseudotime.rds")
+
+```
+

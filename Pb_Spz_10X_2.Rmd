@@ -1,0 +1,210 @@
+---
+title: "Pb_Spz_10X_2"
+author: "Anthony Ruberto and Caitlin Bourke"
+output: html_document
+---
+
+  i. Load libraries.
+
+```{r load libraries}
+
+suppressPackageStartupMessages({
+  library(Seurat)
+  library(ggpubr)
+  })
+
+```
+
+  ii. Load color palettes.
+  
+```{r load color palettes}
+
+palette<-c( '#3cb44b', "#e6194b", '#4363d8','#ffe119','#f58231', '#911eb4', '#46f0f0', '#800000', '#ffd8b1', '#fabebe', '#008080', '#e6beff', '#9a6324', 'grey60', '#f032e6', '#aaffc3', '#808000', '#bcf60c', '#000075', '#808080', '#ffffff', '#000000')
+
+palette2<-c('#f58231', '#911eb4', '#46f0f0', '#800000', '#ffd8b1', '#fabebe', '#008080', '#e6beff', '#9a6324', 'grey60', '#f032e6', '#aaffc3', '#808000', '#bcf60c', '#000075', '#808080', '#ffffff', '#000000','#3cb44b', "#e6194b", '#4363d8','#ffe119')
+
+```
+
+In Pb_Spz_10X.Rmd we performed cell and gene filtering,on each of the sporozoite scRNA-seq replicates. We will now integrate the data for further analyses.
+
+1. Load data in to Seurat.
+
+```{r load SCE object to Seurat object}
+
+# Uploading data duplicates the count data to the data slot as well. Usually the data slot contains the Log normalized data. Further along in the notebook, this slot will be filled with the normalized data.
+
+Pb1<-readRDS("output/MS/1_Pb1_sce.rds")
+Pb1.seu<-as.Seurat(Pb1, slot="counts", data = NULL)
+Pb2<-readRDS("output/MS/1_Pb2_sce.rds")
+Pb2.seu<-as.Seurat(Pb2,slot="counts", data = NULL)
+Pb3<-readRDS("output/MS/1_Pb3_sce.rds")
+Pb3.seu<-as.Seurat(Pb3,slot="counts", data = NULL)
+
+# For compatibility reasons in Seurat, we will copy the 'sum' and 'detected' info to their Seurat equivalents, 'nCount_RNA' and 'nFeature_RNA', respectively.
+
+Pb1.seu$nCount_RNA <-Pb1.seu$sum
+Pb1.seu$nFeature_RNA <-Pb1.seu$detected
+
+Pb2.seu$nCount_RNA <-Pb2.seu$sum
+Pb2.seu$nFeature_RNA <-Pb2.seu$detected
+
+Pb3.seu$nCount_RNA <-Pb3.seu$sum
+Pb3.seu$nFeature_RNA <-Pb3.seu$detected
+
+Pb1.seu$replicate<-"Pb1"
+Pb1.seu$technology<-"10X"
+Pb1.seu$replicate2<-"Technical1"
+
+Pb2.seu$replicate<-"Pb2"
+Pb2.seu$technology<-"10X"
+Pb2.seu$replicate2<-"Technical2"
+
+Pb3.seu$replicate<-"Pb3"
+Pb3.seu$technology<-"10X"
+Pb3.seu$replicate2<-"Biological"
+
+```
+
+2. Ensure compatibility of Seurat object.
+
+  i. mitocondria gene detection.
+```{r mito}
+
+mt.genes.Pb1 <- rownames(Pb1.seu)[grep("^PBANKA-MIT",rownames(Pb1.seu))]
+C<-GetAssayData(object = Pb1.seu, slot = "counts")
+
+percent.mito.Pb1 <- colSums(C[mt.genes.Pb1,])/Matrix::colSums(C)*100
+Pb1.seu<- AddMetaData(Pb1.seu, percent.mito.Pb1, col.name = "percent.mito")
+
+mt.genes.Pb2 <- rownames(Pb2.seu)[grep("^PBANKA-MIT",rownames(Pb2.seu))]
+C<-GetAssayData(object = Pb2.seu, slot = "counts")
+
+percent.mito.Pb2 <- colSums(C[mt.genes.Pb2,])/Matrix::colSums(C)*100
+Pb2.seu<- AddMetaData(Pb2.seu, percent.mito.Pb2, col.name = "percent.mito")
+
+mt.genes.Pb3 <- rownames(Pb3.seu)[grep("^PBANKA-MIT",rownames(Pb3.seu))]
+C<-GetAssayData(object = Pb3.seu, slot = "counts")
+
+percent.mito.Pb3 <- colSums(C[mt.genes.Pb3,])/Matrix::colSums(C)*100
+Pb3.seu<- AddMetaData(Pb3.seu, percent.mito.Pb3, col.name = "percent.mito")
+
+```
+
+  ii. rRNA gene detection.
+  
+```{r rRNA genes}
+
+rRNA_all<-c("PBANKA-1024351","PBANKA-1024331","PBANKA-0700721","PBANKA-MIT00300","PBANKA-MIT00700","PBANKA-MIT02500",
+            "PBANKA-MIT03100","PBANKA-MIT02400","PBANKA-MIT02200","PBANKA-MIT00800","PBANKA-MIT01200","PBANKA-MIT01700",
+            "PBANKA-MIT01000","PBANKA-MIT00900","PBANKA-0700761","PBANKA-0622961","PBANKA-MIT01400","PBANKA-API00051",
+            "PBANKA-1245821","PBANKA-MIT01500","PBANKA-MIT00100","PBANKA-MIT02300","PBANKA-MIT01300","PBANKA-MIT03600",
+            "PBANKA-MIT03200","PBANKA-MIT00600","PBANKA-MIT02600","PBANKA-MIT02900","PBANKA-MIT00200","PBANKA-0622941",
+            "PBANKA-MIT03000","PBANKA-API00095","PBANKA-MIT02000","PBANKA-0622921","PBANKA-MIT02800","PBANKA-0521241",
+            "PBANKA-1024341","PBANKA-MIT00400","PBANKA-0521221","PBANKA-MIT03500","PBANKA-0521261","PBANKA-MIT03700",
+            "PBANKA-MIT01600","PBANKA-1245841","PBANKA-1245861","PBANKA-MIT03300","PBANKA-MIT03400","PBANKA-API00055",
+            "PBANKA-API00011","PBANKA-MIT00500","PBANKA-MIT02700","PBANKA-MIT02100","PBANKA-0700741")
+
+```
+
+  iii. Vector of top 30 UIS genes in P.berghei ANKA
+
+```{r top 30 UIS}
+
+UIS_genes<-c("PBANKA-0205800","PBANKA-1328000","PBANKA-1400800","PBANKA-0501200","PBANKA-0211300","PBANKA-1454900",
+             "PBANKA-1233500","PBANKA-1128100","PBANKA-1206300","PBANKA-0506200","PBANKA-1003400","PBANKA-0511400",
+             "PBANKA-1232400","PBANKA-1346300","PBANKA-1321400","PBANKA-1311000","PBANKA-0602000","PBANKA-1413400",
+             "PBANKA-0914400","PBANKA-1320100","PBANKA-1113800","PBANKA-1435900","PBANKA-1017500","PBANKA-1020200")
+
+```
+
+  iv. Add rRNA genes to metadata.
+
+```{r rRNA metadata}
+
+Pb1.genes<-Pb1.seu@assays$RNA@counts@Dimnames[[1]]
+rRNA_all %in% Pb1.genes
+Pb1.rRNA<-rRNA_all[(rRNA_all %in% Pb1.genes)]
+Pb1.seu[["percent.rRNA"]]<-PercentageFeatureSet(Pb1.seu, features = Pb1.rRNA)
+
+Pb2.genes<-Pb2.seu@assays$RNA@counts@Dimnames[[1]]
+rRNA_all %in% Pb2.genes
+Pb2.rRNA<-rRNA_all[(rRNA_all %in% Pb2.genes)]
+Pb2.seu[["percent.rRNA"]]<-PercentageFeatureSet(Pb2.seu, features = Pb2.rRNA)
+
+Pb3.genes<-Pb3.seu@assays$RNA@counts@Dimnames[[1]]
+rRNA_all %in% Pb3.genes
+Pb3.rRNA<-rRNA_all[(rRNA_all %in% Pb3.genes)]
+Pb3.seu[["percent.rRNA"]]<-PercentageFeatureSet(Pb3.seu, features = Pb3.rRNA)
+
+```
+
+3. Integrate 10X scRNA-seq sporozoite data.
+
+  i. Normalize  the three datasets and find variable features.
+  
+```{r Integration 10X scRNA-seq repicates, one}
+
+Pb.list <-c(Pb1.seu, Pb2.seu, Pb3.seu)
+for (i in 1:length(Pb.list)) {
+    Pb.list[[i]] <- NormalizeData(Pb.list[[i]], verbose = F, normalization.method = "LogNormalize")
+    Pb.list[[i]] <- FindVariableFeatures(Pb.list[[i]], selection.method = "vst", nfeatures = length(rownames(Pb.list[[i]]))*.2, verbose = FALSE)
+}
+
+VariableFeaturePlot(Pb.list[[1]])
+VariableFeaturePlot(Pb.list[[2]])
+VariableFeaturePlot(Pb.list[[3]])
+
+```
+
+  ii. Find integration anchors and integrate data.
+
+```{r Integration 10X scRNA-seq repicates, two}
+
+Pb.anchors <- FindIntegrationAnchors(object.list = Pb.list, dims = 1:15, anchor.features = 300)
+
+Pb.integrated <- IntegrateData(anchorset = Pb.anchors, dims = 1:15)
+
+```
+
+  iii. Scale data and perform dimension reduction.
+
+```{r Integration 10X scRNA-seq repicates, three}
+
+set.seed(6969)
+
+#Ensure default assay is "integrated".
+
+DefaultAssay(Pb.integrated) 
+
+Pb.integrated <- ScaleData(Pb.integrated, verbose = FALSE)
+
+Pb.integrated <- RunPCA(Pb.integrated, npcs = 50, verbose = FALSE, seed.use = 20)
+
+ElbowPlot(Pb.integrated)
+
+Pb.integrated <- RunUMAP(Pb.integrated, reduction = "pca", dims = 1:15, n.components = 2, seed.use = 42)
+
+```
+
+ iv. Visualize structure of the data in low-dim space.
+
+```{r integrated Pb Dimplots}
+
+fig1f.1<-DimPlot(Pb.integrated, reduction = "umap", group.by = "Sample", split.by = "Sample", label = F, label.size = 6, cols = palette, pt.size = NULL)+NoLegend()+border()
+
+fig1f.2<-DimPlot(Pb.integrated, reduction = "umap", group.by = "Sample", label = F, label.size = 6, cols = palette, pt.size = .1)+border()+NoLegend()+border()
+
+ggarrange(fig1f.1, fig1f.2, heights = c(0.7, 1.4), ncol = 1, nrow = 2, common.legend = F)
+
+```
+
+We have integrated the three 10X scRNA-seq sporozoite datasets. Save the data and proceed to the next notebook for clustering and DE analyses.
+
+4. Save integrated dataset.
+
+```{r save LogNorm integrated}
+
+saveRDS(Pb.integrated,"output/MS/2_PbInt_LogNorm_CCA.rds")
+
+```
+

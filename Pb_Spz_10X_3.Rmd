@@ -1,0 +1,91 @@
+---
+title: "Pb_Spz_10X_3"
+author: "Anthony Ruberto and Caitlin Bourke"
+output: html_document
+---
+
+  i. Load libraries.
+
+```{r load libraries}
+
+suppressPackageStartupMessages({
+  library(Seurat)
+  library(ggpubr)
+  })
+
+```
+  
+  ii. Load color palette.
+  
+```{r load color palette}
+
+palette2<-c('#f58231', '#911eb4', '#46f0f0', '#800000', '#ffd8b1', '#fabebe', '#008080', '#e6beff', '#9a6324', 'grey60', '#f032e6', '#aaffc3', '#808000', '#bcf60c', '#000075', '#808080', '#ffffff', '#000000','#3cb44b', "#e6194b", '#4363d8','#ffe119')
+
+```
+
+1. Load data.
+
+```{r load integrated dataset}
+
+Pb.integrated<-readRDS("output/MS/2_PbInt_LogNorm_CCA.rds")
+
+```
+
+2. Perform graph-based clustering.
+
+  i. Find neighbours.
+
+```{r cluster Pb 10X scRNA-seq, one}
+
+Pb.integrated <- FindNeighbors(Pb.integrated, dims = 1:15, verbose = FALSE)
+
+```
+
+  ii. Find clusters.
+  
+Let's assess clusters using various resolutions. We will use the Leiden algorithm to detect communities. Despite taking some extra time to run. This algorithm builds on the Louvain algorithm and hashes out some of its pitfalls. See [1] for more information.
+
+```{r cluster Pb 10X scRNA-seq, two}
+
+Pb.integrated <- FindClusters(Pb.integrated, graph.name = "integrated_snn", resolution = .1  , algorithm = 4)
+Pb.integrated <- FindClusters(Pb.integrated, graph.name = "integrated_snn", resolution = .2  , algorithm = 4)
+Pb.integrated <- FindClusters(Pb.integrated, graph.name = "integrated_snn", resolution = .3 , algorithm = 4)
+Pb.integrated <- FindClusters(Pb.integrated, graph.name = "integrated_snn", resolution = .4 , algorithm = 4)
+Pb.integrated <- FindClusters(Pb.integrated, graph.name = "integrated_snn", resolution = .5 , algorithm = 4)
+Pb.integrated <- FindClusters(Pb.integrated, graph.name = "integrated_snn", resolution = .6 , algorithm = 4)
+Pb.integrated <- FindClusters(Pb.integrated, graph.name = "integrated_snn", resolution = .7 , algorithm = 4)
+Pb.integrated <- FindClusters(Pb.integrated, graph.name = "integrated_snn", resolution = .8 , algorithm = 4)
+Pb.integrated <- FindClusters(Pb.integrated, graph.name = "integrated_snn", resolution = .9 , algorithm = 4)
+Pb.integrated <- FindClusters(Pb.integrated, graph.name = "integrated_snn", resolution = 1  , algorithm = 4)
+
+```
+
+At this point, we have inferred sporozoite clusters across a range of resolutions. However, how many of these clusters are biologically relevant?
+Given our experimental design, more specifically, the sequencing of midgut and salivary gland sporozoites, we can predict that two clusters should exist.
+With that in mind, we will use a conservative resolution (0.1) - outputting 2 clusters - to perform initial differential gene expression analysis.
+To generate the data in Figure 2 of the manuscript, set identity to a clustering resolution of 0.1 using SetIdent() function.
+
+  iii. Visualize data, conservative resolution. 
+
+```{r visualize, cluster Pb 10X scRNA-seq, conservative resolution}
+
+fig2a.1<-DimPlot(Pb.integrated, reduction = "umap", group.by = "integrated_snn_res.0.1", split.by = "Sample", label = F, label.size = 6, cols = palette2, pt.size = NULL)+NoLegend()+border()
+
+fig2a.2<-DimPlot(Pb.integrated, reduction = "umap", group.by = "integrated_snn_res.0.1", label = F, label.size = 6, cols = palette2, pt.size = .1)+border()+NoLegend()
+
+ggarrange(fig2a.1, fig2a.2, heights = c(0.7, 1.4),
+          ncol = 1, nrow = 2, common.legend = F)
+
+```
+3. Save Seurat object.
+
+```{r save RDS}
+
+saveRDS(Pb.integrated,"output/MS/3_PbInt_LogNorm_CCA_Clustered.rds")
+
+```
+
+References.
+
+[1] Traag, V. A., Waltman, L., & van Eck, N. J. (2019). From Louvain to Leiden: guaranteeing well-connected communities. Scientific reports, 9(1), 1-12.
+[2] Zappia, L., & Oshlack, A. (2018). Clustering trees: a visualization for evaluating clusterings at multiple resolutions. GigaScience, 7(7), giy083.
