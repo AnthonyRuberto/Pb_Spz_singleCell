@@ -8,6 +8,8 @@ Once complete you will find 3 folders that corresponding to the each of the Plas
 
 Modify the path of these folders in the Rb_Spz_10X.Rmd so that they can be read to R.
 
+When saving the RDS files be sure you have the correct output path specified.
+
 ## Markdown file descriptions
 
 Rb_Spz_10X.Rmd allows you to upload and modify the matrices individually (i.e remove empty droplets, remove cells with high gene counts, filter low expressing 
@@ -25,8 +27,11 @@ Pb_Spz_10X_5.Rmd described the workflow used to integrate the MCA (Smart-Seq2 sc
 
 Pb_Spz_10X_6.Rmd described the workflow used for the trajectory analysis and generates the SCE object 6_Pb_integrated_10X_only_pseudotime.rds. This file is related to Figure 4.
 
+## Outputs
 
-Links
+In the event you do not want to perform the analysism, the .rds files from each step can be downloaded from this repository. You can find these files in the output folder. Simply download and unzip.
+
+## Links
 
 [1] https://github.com/vhowick/MalariaCellAtlas/tree/master/Expression_Matrices/Smartseq2
 
