@@ -33,11 +33,11 @@ In Pb_Spz_10X.Rmd we performed cell and gene filtering,on each of the sporozoite
 
 # Uploading data duplicates the count data to the data slot as well. Usually the data slot contains the Log normalized data. Further along in the notebook, this slot will be filled with the normalized data.
 
-Pb1<-readRDS("output/MS/1_Pb1_sce.rds")
+Pb1<-readRDS("output/1_Pb1_sce.rds")
 Pb1.seu<-as.Seurat(Pb1, slot="counts", data = NULL)
-Pb2<-readRDS("output/MS/1_Pb2_sce.rds")
+Pb2<-readRDS("output/1_Pb2_sce.rds")
 Pb2.seu<-as.Seurat(Pb2,slot="counts", data = NULL)
-Pb3<-readRDS("output/MS/1_Pb3_sce.rds")
+Pb3<-readRDS("output/1_Pb3_sce.rds")
 Pb3.seu<-as.Seurat(Pb3,slot="counts", data = NULL)
 
 # For compatibility reasons in Seurat, we will copy the 'sum' and 'detected' info to their Seurat equivalents, 'nCount_RNA' and 'nFeature_RNA', respectively.
@@ -204,7 +204,7 @@ We have integrated the three 10X scRNA-seq sporozoite datasets. Save the data an
 
 ```{r save LogNorm integrated}
 
-saveRDS(Pb.integrated,"output/MS/2_PbInt_LogNorm_CCA.rds")
+saveRDS(Pb.integrated,"output/2_PbInt_LogNorm_CCA.rds")
 
 ```
 

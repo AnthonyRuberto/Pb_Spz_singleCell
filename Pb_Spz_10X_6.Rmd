@@ -32,7 +32,7 @@ palette2<-c('#f58231', '#911eb4', '#46f0f0', '#800000', '#008080','grey60', '#f0
 
 ```{r upload 10X data}
 
-Pb.integrated.10X.only<-readRDS("output/MS/5_Pb_integrated_10X_only.rds")
+Pb.integrated.10X.only<-readRDS("output/5_Pb_integrated_10X_only.rds")
 
 ```
 
@@ -95,7 +95,7 @@ Once the GAM fitting is complete, use tradeSEQ [1]  on the sceALL10Xspz object t
 
 ```{r save SCE pseudotime object}
 
-saveRDS(sceALL10Xspz, "output/MS/6_Pb_integrated_10X_only_pseudotime.rds")
+saveRDS(sceALL10Xspz, "output/6_Pb_integrated_10X_only_pseudotime.rds")
 
 ```
 

@@ -1,6 +1,6 @@
 ---
 title: "Pb_Spz_10X_4"
-author: "Anthony Rubertoand Caitlin Bourke"
+author: "Anthony Ruberto and Caitlin Bourke"
 output: html_document
 ---
 
@@ -31,11 +31,12 @@ palette<-c( '#3cb44b', "#e6194b", '#4363d8','#ffe119','#f58231', '#911eb4', '#46
 The files used in this document were downloaded from MCA's dedicated Github page [1]. 
 
 1. Load MCA SmartSeq-2 data in to R, and subset to only keep pre-vertebrate life-cycle stages of the parasite.
+The data can be obtained from [1] or from this GitHub page.
 
 ```{r load MCA PbANKA SS2 data}
 
-molecules <- read.table("~/Documents/Single_cell_practice/MalariaAtlas/SS2_counts.txt", header = TRUE, sep = ",", row.names=1, stringsAsFactors = TRUE)
-anno <- read.delim("~/Documents/Single_cell_practice/Git_10X_Pb_Spz/SS2_pheno.txt", header = TRUE, sep = ",")
+molecules <- read.table("__________/SS2_counts.txt", header = TRUE, sep = ",", row.names=1, stringsAsFactors = TRUE)
+anno <- read.delim("______/SS2_pheno.txt", header = TRUE, sep = ",")
 cols <- c("bbSpz" = "navy", "EEF"="darkorange", "Merozoite"="lightpink", "oocyst"="steelblue", "ook" = "turquoise4", "Ring"="hotpink", "sgSpz"= "royalblue", "Schizont" = "violetred", "Male"="purple", "Female"="purple4", "ookoo" = "mediumturquoise", "Trophozoite"="violet")
 
 mca.qc.ss <- SingleCellExperiment(assays = list(
@@ -55,7 +56,7 @@ mca.qc.ss <- mca.qc.ss[, (colData(mca.qc.ss)$ShortenedLifeStage3 == "bbSpz") |
 
 ```{r prep matrices MCA PbANKA SS2}
 
-Pb_v46_genes<- read.delim("/Users/aruberto/Documents/Projects/Pb_spz_10X_sc/Analyses/R/PbANKA_v46_info.txt") %>% distinct()
+Pb_v46_genes<- read.delim("_________/PbANKA_v46_info.txt") %>% distinct()
 
 rowData(mca.qc.ss)$Description <- Pb_v46_genes$Description[match(rownames(mca.qc.ss), Pb_v46_genes$Gene)]
 rowData(mca.qc.ss)$GeneDescription <- Pb_v46_genes$GeneDescription[match(rownames(mca.qc.ss), Pb_v46_genes$Gene)]
@@ -255,7 +256,7 @@ This Seurat object was used for the generation of the UMAPs of the integrated 10
 
 ```{r save MCA pre-vertebrate host Seurat object}
 
-saveRDS(mca.mq.stage, "output/MS/4_MCA_SS2_seurat.rds")
+saveRDS(mca.mq.stage, "output/4_MCA_SS2_seurat.rds")
 
 ```
 

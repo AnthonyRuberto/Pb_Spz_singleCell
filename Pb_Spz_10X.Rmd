@@ -67,7 +67,7 @@ Pb3.sce <- Pb3[,which(e.out.Pb3$FDR <= 0.001)]
 
 ```{r add metadata}
 
-Pb_v46_genes<- read.delim("/Users/aruberto/Documents/Projects/Pb_spz_10X_sc/Analyses/R/PbANKA_46_info.txt") %>% distinct()
+Pb_v46_genes<- read.delim("_______________/PbANKA_46_info.txt") %>% distinct()
 
 rowData(Pb1.sce)$Description <- Pb_v46_genes$Description[match(rownames(Pb1.sce), Pb_v46_genes$Gene)]
 rowData(Pb1.sce)$GeneDescription <- Pb_v46_genes$GeneDescription[match(rownames(Pb1.sce), Pb_v46_genes$Gene)]
@@ -275,4 +275,3 @@ saveRDS(Pb3.sce.filt, "output/1_Pb3_sce.rds")
 ```
 
 Proceed to the next notebook for further processing.
-

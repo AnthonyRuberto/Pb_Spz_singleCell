@@ -27,7 +27,7 @@ palette2<-c('#f58231', '#911eb4', '#46f0f0', '#800000', '#ffd8b1', '#fabebe', '#
 
 ```{r load integrated dataset}
 
-Pb.integrated<-readRDS("output/MS/2_PbInt_LogNorm_CCA.rds")
+Pb.integrated<-readRDS("output/2_PbInt_LogNorm_CCA.rds")
 
 ```
 
@@ -81,7 +81,7 @@ ggarrange(fig2a.1, fig2a.2, heights = c(0.7, 1.4),
 
 ```{r save RDS}
 
-saveRDS(Pb.integrated,"output/MS/3_PbInt_LogNorm_CCA_Clustered.rds")
+saveRDS(Pb.integrated,"output/3_PbInt_LogNorm_CCA_Clustered.rds")
 
 ```
 
