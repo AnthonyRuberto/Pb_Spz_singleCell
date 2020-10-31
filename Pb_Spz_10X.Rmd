@@ -21,12 +21,13 @@ suppressPackageStartupMessages({
 ```
 
 1. Load count matrices in to R.
+Unzip the STARsoloOutputs file and fill in the blanks for R to locate the files in your system
 
 ```{r load scRNA-seq count matrices}
 
-data_dir1 <- "~/Documents/Projects/Pb_spz_10X_sc/Analyses/Pb24a/Gene"
-data_dir2 <- "~/Documents/Projects/Pb_spz_10X_sc/Analyses/Pb24b/Gene"
-data_dir3 <- "~/Documents/Projects/Pb_spz_10X_sc/Analyses/Pb12/Gene"
+data_dir1 <- "_____________/Pb24a/Gene"
+data_dir2 <- "_____________/Pb24b/Gene"
+data_dir3 <- "_____________/Pb12/Gene"
 
 Pb1<-read10xCounts(data_dir1, col.names = T)
 Pb2<-read10xCounts(data_dir2, col.names = T)
@@ -267,9 +268,9 @@ Up to this point, we have performed cell and gene filtering to make our single-c
 
 ```{r save processed SCE objects}
 
-saveRDS(Pb1.sce.filt, "output/MS/1_Pb1_sce.rds")
-saveRDS(Pb2.sce.filt, "output/MS/1_Pb2_sce.rds")
-saveRDS(Pb3.sce.filt, "output/MS/1_Pb3_sce.rds")
+saveRDS(Pb1.sce.filt, "output/1_Pb1_sce.rds")
+saveRDS(Pb2.sce.filt, "output/1_Pb2_sce.rds")
+saveRDS(Pb3.sce.filt, "output/1_Pb3_sce.rds")
 
 ```
 
