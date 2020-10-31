@@ -29,7 +29,7 @@ Pb_Spz_10X_6.Rmd described the workflow used for the trajectory analysis and gen
 
 ## Outputs
 
-In the event you do not want to perform the analysism, the .rds files from each step can be downloaded from this repository. You can find these files in the output folder. Simply download and unzip.
+In the event you do not want to perform the analysis, the .rds files from each step can be downloaded from Zenedo  
 
 ## Links
 
