@@ -1,7 +1,9 @@
 # Workflow for manuscript titled **Single-cell RNA sequencing reveals developmental heterogeneity among *Plasmodium berghei* sporozoites**
-#### Anthony A. Ruberto1, Caitlin Bourke2, Nicolas Merienne1, Thomas Obadia1, Rogerio Amino1, Ivo Mueller1,2
+#### Anthony A. Ruberto1, Caitlin Bourke2,3 Nicolas Merienne1, Thomas Obadia1,4, Rogerio Amino1, Ivo Mueller1,2,3
 #### 1 Department of Parasites and Insect Vectors, Institut Pasteur, Paris, France
 #### 2 Division of Population Health and Immunity, Walter and Eliza Hall Institute of Medical Research, Parkville, Victoria, Australia
+#### 3 Department of Medical Biology, University of Melbourne, Melbourne, Victoria, Australia
+#### 4 Hub de Bioinformatique et Biostatistique – Département Biologie Computationnelle, Institut Pasteur, 75015 Paris, France
 
 
 ## Contents
