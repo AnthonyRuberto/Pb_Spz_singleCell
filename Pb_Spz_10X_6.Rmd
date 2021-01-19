@@ -42,7 +42,12 @@ Pb.integrated.10X.only<-readRDS("output/5_Pb_integrated_10X_only.rds")
 
 dimred <- Pb.integrated.10X.only@reductions$umap@cell.embeddings
 clustering <- Pb.integrated.10X.only$integrated_snn_res.0.7
-counts <- as.matrix(Pb.integrated.10X.only@assays$RNA@counts[Pb.integrated.10X.only@assays$integrated@var.features, ])
+
+# Full gene list - Note: Long processing time. To reproduce output in manuscript, use this matrix.
+counts <- as.matrix(Pb.integrated.10X@assays$RNA@counts)
+
+# Variable features only - Drasitically speeds up run time. Run to only output variable transcripts. Note: This will produce a genelist with different statisical outputs.
+# counts <- as.matrix(Pb.integrated.10X.only@assays$RNA@counts[Pb.integrated.10X.only@assays$integrated@var.features, ])
 
 ```
 
