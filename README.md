@@ -12,7 +12,7 @@ R Markdown files containing codes used to analyze *Plasmodium berghei* sporozoit
 
 To perform the analysis in its entirety, download and unzip "STARsoloOutputs".
 
-Once complete you will find 3 folders that corresponding to the each of the *Plasmodium berghei* 10X scRNA-seq runs.
+Once complete you will find 3 folders that correspond to the each of the *Plasmodium berghei* 10X scRNA-seq runs.
 
 Modify the path of these folders in the Pb_Spz_10X.Rmd so that they can be read to R.
 
