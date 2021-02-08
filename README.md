@@ -6,7 +6,7 @@
 #### 4 Hub de Bioinformatique et Biostatistique – Département Biologie Computationnelle, Institut Pasteur, 75015 Paris, France
 
 
-## Contents
+## Content
 
 R Markdown files containing codes used to analyze *Plasmodium berghei* sporozoites.
 
